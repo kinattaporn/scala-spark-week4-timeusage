@@ -2,12 +2,18 @@ package timeusage
 
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
+import org.apache.spark.SparkConf
+import org.apache.spark.SparkContext
 
 /** Main class */
 object TimeUsage extends TimeUsageInterface {
 
   import org.apache.spark.sql.SparkSession
   import org.apache.spark.sql.functions._
+
+  val conf: SparkConf = new SparkConf().setMaster("local").setAppName("TimeUsage")
+  val sc: SparkContext = new SparkContext(conf)
+  sc.setLogLevel("ERROR")
 
   val spark: SparkSession =
     SparkSession
@@ -21,7 +27,16 @@ object TimeUsage extends TimeUsageInterface {
 
   /** Main function */
   def main(args: Array[String]): Unit = {
-    timeUsageByLifePeriod()
+//    timeUsageByLifePeriod()
+    println("------------------------------------ read")
+    val (columns, initDf) = read("src/main/resources/timeusage/atussum.csv")
+    println("columns", columns)
+    initDf.show()
+    println("------------------------------------ row")
+    val line = List("20030100013280","1","-1","44","2","2","60","2","2","-1","-1","1","2","0","2","66000","0","-1","1","-1","6","8155463","30","2003","870","0","0","40","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","5","0","0","0","0","0","0","0","0","0","0","0","325","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","200","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0")
+    row(line)
+    println("------------------------------------ classifiedColumns")
+    classifiedColumns(columns)
     spark.close()
   }
 
@@ -42,8 +57,17 @@ object TimeUsage extends TimeUsageInterface {
   /** @return An RDD Row compatible with the schema produced by `dfSchema`
     * @param line Raw fields
     */
-  def row(line: List[String]): Row =
-    ???
+  def row(line: List[String]): Row = {
+    val line_schema = line.head.toString :: line.tail.map(x => x.toDouble)
+    println("line_schema")
+    println(line_schema.getClass.getName)
+    println(line_schema)
+    val row_schema = Row(line_schema: _*)
+    println("row_schema")
+    println(row_schema.getClass.getName)
+    println(row_schema)
+    row_schema
+  }
 
   /** @return The initial data frame columns partitioned in three groups: primary needs (sleeping, eating, etc.),
     *         work and other (leisure activities)
@@ -61,7 +85,46 @@ object TimeUsage extends TimeUsageInterface {
     *    “t10”, “t12”, “t13”, “t14”, “t15”, “t16” and “t18” (those which are not part of the previous groups only).
     */
   def classifiedColumns(columnNames: List[String]): (List[Column], List[Column], List[Column]) = {
-    ???
+    val test_header = List("tucaseid", "gemetsta")
+    val primary_header = columnNames.filter(x => x.startsWith("t01")
+      || x.startsWith("t03")
+      || x.startsWith("t11")
+      || x.startsWith("t1801")
+      || x.startsWith("t1803")
+    )
+    val working_header = columnNames.filter(x => x.startsWith("t05")
+      || x.startsWith("t1805")
+    )
+    val other_header = columnNames.filter(x => x.startsWith("t02")
+      || x.startsWith("t04")
+      || x.startsWith("t06")
+      || x.startsWith("t07")
+      || x.startsWith("t08")
+      || x.startsWith("t09")
+      || x.startsWith("t10")
+      || x.startsWith("t12")
+      || x.startsWith("t13")
+      || x.startsWith("t14")
+      || x.startsWith("t15")
+      || x.startsWith("t16")
+      || (x.startsWith("t18") && !x.startsWith("t1801") && !x.startsWith("t1803") && !x.startsWith("t1805"))
+    )
+    println(test_header(0).getClass.getName)
+    println(test_header)
+    println(primary_header)
+    println(working_header)
+    println(other_header)
+    val (columns, initDf) = read("src/main/resources/timeusage/atussum.csv")
+    val test_col = test_header.map(x => initDf.select(x).col(x))
+    val primary_col = primary_header.map(x => initDf.select(x).col(x))
+    val working_col = working_header.map(x => initDf.select(x).col(x))
+    val other_col = other_header.map(x => initDf.select(x).col(x))
+    println(test_col(0).getClass.getName)
+    println(test_col)
+    println(primary_col)
+    println(working_col)
+    println(other_col)
+    (primary_col, working_col, other_col)
   }
 
   /** @return a projection of the initial DataFrame such that all columns containing hours spent on primary needs
