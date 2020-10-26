@@ -27,7 +27,6 @@ object TimeUsage extends TimeUsageInterface {
 
   /** Main function */
   def main(args: Array[String]): Unit = {
-//    timeUsageByLifePeriod()
     println("------------------------------------ read")
     val (columns, initDf) = read("src/main/resources/timeusage/atussum.csv")
     println("columns", columns)
@@ -36,7 +35,11 @@ object TimeUsage extends TimeUsageInterface {
     val line = List("20030100013280","1","-1","44","2","2","60","2","2","-1","-1","1","2","0","2","66000","0","-1","1","-1","6","8155463","30","2003","870","0","0","40","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","5","0","0","0","0","0","0","0","0","0","0","0","325","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","200","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0")
     row(line)
     println("------------------------------------ classifiedColumns")
-    classifiedColumns(columns)
+    val (primaryNeedsColumns, workColumns, otherColumns) = classifiedColumns(columns)
+    println("------------------------------------ timeUsageSummary")
+    val summaryDf = timeUsageSummary(primaryNeedsColumns, workColumns, otherColumns, initDf)
+    summaryDf.show()
+//    timeUsageByLifePeriod()
     spark.close()
   }
 
@@ -85,7 +88,7 @@ object TimeUsage extends TimeUsageInterface {
     *    “t10”, “t12”, “t13”, “t14”, “t15”, “t16” and “t18” (those which are not part of the previous groups only).
     */
   def classifiedColumns(columnNames: List[String]): (List[Column], List[Column], List[Column]) = {
-    val test_header = List("tucaseid", "gemetsta")
+    val test_header = List("t010101", "t010201")
     val primary_header = columnNames.filter(x => x.startsWith("t01")
       || x.startsWith("t03")
       || x.startsWith("t11")
@@ -115,10 +118,10 @@ object TimeUsage extends TimeUsageInterface {
     println(working_header)
     println(other_header)
     val (columns, initDf) = read("src/main/resources/timeusage/atussum.csv")
-    val test_col = test_header.map(x => initDf.select(x).col(x))
-    val primary_col = primary_header.map(x => initDf.select(x).col(x))
-    val working_col = working_header.map(x => initDf.select(x).col(x))
-    val other_col = other_header.map(x => initDf.select(x).col(x))
+    val test_col = test_header.map(x => col(x))
+    val primary_col = primary_header.map(x => col(x))
+    val working_col = working_header.map(x => col(x))
+    val other_col = other_header.map(x => col(x))
     println(test_col(0).getClass.getName)
     println(test_col)
     println(primary_col)
@@ -167,17 +170,46 @@ object TimeUsage extends TimeUsageInterface {
     // more sense for our use case
     // Hint: you can use the `when` and `otherwise` Spark functions
     // Hint: don’t forget to give your columns the expected name with the `as` method
-    val workingStatusProjection: Column = ???
-    val sexProjection: Column = ???
-    val ageProjection: Column = ???
+    val workingStatusProjection: Column =
+      when($"telfs" >= 1.0 && $"telfs" < 3.0, "working")
+        .otherwise("not working")
+        .as("working")
+    val sexProjection: Column =
+      when($"tesex" === 1.0, "male")
+        .otherwise("female")
+        .as("sex")
+    val ageProjection: Column =
+      when($"teage" >= 15.0 && $"teage" <= 22.0, "young")
+        .when($"teage" >= 23.0 && $"teage" <= 55.0, "active")
+        .otherwise("elder")
+        .as("age")
+    println(workingStatusProjection)
+    println(sexProjection)
+    println(ageProjection)
 
     // Create columns that sum columns of the initial dataset
     // Hint: you want to create a complex column expression that sums other columns
     //       by using the `+` operator between them
     // Hint: don’t forget to convert the value to hours
-    val primaryNeedsProjection: Column = ???
-    val workProjection: Column = ???
-    val otherProjection: Column = ???
+    val primaryNeedsProjection: Column =
+      primaryNeedsColumns
+        .reduce(_ + _)
+        .divide(60.0)
+        .as("primaryNeeds")
+    val workProjection: Column =
+      workColumns
+        .reduce(_ + _)
+        .divide(60.0)
+        .as("work")
+    val otherProjection: Column =
+      otherColumns
+        .reduce(_ + _)
+        .divide(60.0)
+        .as("other")
+    println(primaryNeedsProjection)
+    println(workProjection)
+    println(otherProjection)
+
     df
       .select(workingStatusProjection, sexProjection, ageProjection, primaryNeedsProjection, workProjection, otherProjection)
       .where($"telfs" <= 4) // Discard people who are not in labor force
