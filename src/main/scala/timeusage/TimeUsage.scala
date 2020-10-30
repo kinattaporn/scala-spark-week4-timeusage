@@ -45,7 +45,8 @@ object TimeUsage extends TimeUsageInterface {
     println("------------------------------------ timeUsageByLifePeriod")
     timeUsageByLifePeriod()
     println("------------------------------------ timeUsageGroupedSql")
-    timeUsageGroupedSql(finalDf)
+    val finalDfSql = timeUsageGroupedSql(summaryDf)
+    finalDfSql.show()
     spark.close()
   }
 
@@ -263,7 +264,7 @@ object TimeUsage extends TimeUsageInterface {
     * @param viewName Name of the SQL view to use
     */
   def timeUsageGroupedSqlQuery(viewName: String): String =
-  """
+  s"""
       | SELECT working, sex, age
       |   , ROUND(AVG(primaryNeeds), 1) AS primaryNeeds
       |   , ROUND(AVG(work), 1) AS work
