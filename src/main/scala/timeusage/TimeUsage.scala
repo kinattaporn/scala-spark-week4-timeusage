@@ -39,7 +39,13 @@ object TimeUsage extends TimeUsageInterface {
     println("------------------------------------ timeUsageSummary")
     val summaryDf = timeUsageSummary(primaryNeedsColumns, workColumns, otherColumns, initDf)
     summaryDf.show()
-//    timeUsageByLifePeriod()
+    println("------------------------------------ timeUsageGrouped")
+    val finalDf = timeUsageGrouped(summaryDf)
+    finalDf.show()
+    println("------------------------------------ timeUsageByLifePeriod")
+    timeUsageByLifePeriod()
+    println("------------------------------------ timeUsageGroupedSql")
+    timeUsageGroupedSql(finalDf)
     spark.close()
   }
 
@@ -233,7 +239,14 @@ object TimeUsage extends TimeUsageInterface {
     * Finally, the resulting DataFrame should be sorted by working status, sex and age.
     */
   def timeUsageGrouped(summed: DataFrame): DataFrame = {
-    ???
+    summed
+      .groupBy(s"working", s"sex", s"age")
+      .agg(
+        round(avg(s"primaryNeeds"), 1).as("primaryNeeds"),
+        round(avg(s"work"), 1).as("work"),
+        round(avg(s"other"), 1).as("other")
+      )
+      .orderBy(s"working", s"sex", s"age")
   }
 
   /**
@@ -250,7 +263,16 @@ object TimeUsage extends TimeUsageInterface {
     * @param viewName Name of the SQL view to use
     */
   def timeUsageGroupedSqlQuery(viewName: String): String =
-    ???
+  """
+      | SELECT working, sex, age
+      |   , ROUND(AVG(primaryNeeds), 1) AS primaryNeeds
+      |   , ROUND(AVG(work), 1) AS work
+      |   , ROUND(AVG(other), 1) AS other
+      | FROM $viewName
+      | GROUP BY working, sex, age
+      | ORDER BY working, sex, age
+  """.stripMargin
+
 
   /**
     * @return A `Dataset[TimeUsageRow]` from the “untyped” `DataFrame`
